@@ -311,20 +311,14 @@ def theorys(message, message1):
     bot.send_message(message1.chat.id, text="Модуль 1:", parse_mode='html', reply_markup=markup)
 
 
-# Вывод меню наград
-def rewards(message):
-    bot.send_message(message.chat.id, "🏆Награды")
-
-
 # Вывод меню
 def menu(message):
     menu_markup = types.ReplyKeyboardMarkup(resize_keyboard=True,
                                             row_width=1)  # Создание кнопок в меню (размер кнопок, и кол-во в ряду):
     btn_learn = types.KeyboardButton('📚Обучение📚')
     btn_profile = types.KeyboardButton('👤Профиль👤')
-    btn_rewards = types.KeyboardButton('🏆Награды🏆')
     btn_theory = types.KeyboardButton('📖Теория📖')
-    menu_markup.add(btn_learn, btn_profile, btn_rewards, btn_theory)
+    menu_markup.add(btn_learn, btn_profile, btn_theory)
     bot.send_message(message.chat.id, "⚪️<ins><b>Меню:</b></ins>⚪️", reply_markup=menu_markup, parse_mode='html')
 
 
@@ -343,8 +337,6 @@ def call_menu(message):
         learning(message)
     elif message.text == '👤Профиль👤':
         profile(message)
-    elif message.text == '🏆Награды🏆':
-        rewards(message)
     elif message.text == 'Вернуться в меню':
         menu(message)
     elif message.text == '📖Теория📖':

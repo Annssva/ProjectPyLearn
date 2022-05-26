@@ -339,7 +339,7 @@ def to_menu(message, mess):
     bot.send_message(message.chat.id, mess, reply_markup=to_menu_markup, parse_mode='html')
 
 
-# Ловит кнопки меню
+# Ловит кнопки меню и вызывает соот-ий метод
 @bot.message_handler()
 def call_menu(message):
     if message.text == '📚Обучение📚':

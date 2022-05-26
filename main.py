@@ -5,35 +5,36 @@ from telebot import types  # Импортирование из библиоте�
 
 import main
 from config import token
-import sql_requests
+import sql_requests  # Файл с нужными sql запросами к бд
 import theory
 
 bot = telebot.TeleBot(token)  # Присваивание токена переменной bot, с которой будем взаимодействовать
 
-answer = 0
+answer = 0  # Переменная - счетчик попыток ответов на тесты
 
 
 # Вывод стартового сообщения
-@bot.message_handler(commands=['start'])  # Отслеживание команды start (можно отслеживать нескольео команд)
-def start(message):  # Сама функция команды, message - получаемый ответ от пользователя
-    if not sql_requests.check_db(message.from_user.id):
+@bot.message_handler(commands=['start'])
+def start(message):
+    if not sql_requests.check_db(message.from_user.id):  # Если пользователя нет в бд, добавляет его туда
         sql_requests.create_user_db(message.from_user.id)
     sti = open('sticker.webp', 'rb')
-    bot.send_sticker(message.chat.id, sti)
+    bot.send_sticker(message.chat.id, sti)  # присылает приветсвенный стикер
     mess = f'Привет, <ins><b>{message.from_user.first_name}</b></ins>!\n' \
-           f'Я Бот, созданный, чтобы помочь тебе изучить основы Python! 🐍'  # получение имени пользователя
+           f'Я Бот, созданный, чтобы помочь тебе изучить основы Python! 🐍'
     bot.send_message(message.chat.id, mess, parse_mode='html')
-    menu(message)
+    menu(message)  # метод, который показывает меню
 
 
 # Метод для улавливания инлайновых кнопок
 @bot.callback_query_handler(func=lambda call: True)
 def callback_inline(call):
     if call.message:
-        if call.data == 'next_btn':
+        if call.data == 'next_btn':  # Улавливает нажатие кнопки "Дальше"
             send_lesson(call)
             bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
-        elif call.data == 'test_btn':
+        elif call.data == 'test_btn':  # Улавливает нажатие кнопки "Перейти к тесту"
+            # prog_stat - кол-во пройденных уроков, далее с поиощью запроса мы получаем его и отсылаем нужный тест
             prog_stat = sql_requests.get_progress(call.from_user.id)["progress"]
             if prog_stat == 0:
                 send_test(call, theory.test_1_v1, theory.test_1_v2, theory.test_1_v3, theory.test_1)
@@ -56,12 +57,13 @@ def callback_inline(call):
             elif prog_stat == 7:
                 send_test(call, theory.test_8_v1, theory.test_8_v2, theory.test_8_v3, theory.test_8)
 
-        elif call.data == 'var_false':
+        elif call.data == 'var_false':  # улавливает нажатие неверного ответа в тесте и вызывает метод для его обработки
             send_false(call)
 
-        elif call.data == 'var_right':
+        elif call.data == 'var_right':  # улавливает нажатие верного ответа в тесте и вызывает метод для его обработки
             send_right(call)
-
+        # Далее улавливаются нажатие кнопок для просмотра соот-ей теории, но теория показывается только для уроков,
+        # которые пользователь уже прошел, поэтому делается проверка прогресса
         elif call.data == 'teor_1':
             prog_stat = sql_requests.get_progress(call.from_user.id)["progress"]
             if prog_stat >= 1:
@@ -137,20 +139,13 @@ def callback_inline(call):
                 bot.answer_callback_query(callback_query_id=call.id,
                                           text='Пока урок не пройден, теория к нему закрыта❌')
 
-        elif call.data == 'to_theory':
+        elif call.data == 'to_theory':  # Улавливает кнопку, чтобы вернутся от теории к меню выбора теорий
             theorys(call, call.message)
 
 
-# Вывод теории
-def send_theory(call, name, theory_text):
-    bot.send_message(call.message.chat.id, text=name, parse_mode='html')
-    markup = types.InlineKeyboardMarkup(row_width=1)
-    btn_back = types.InlineKeyboardButton("Назад", callback_data='to_theory')
-    markup.add(btn_back)
-    bot.send_message(call.message.chat.id, text=theory_text, parse_mode='html', reply_markup=markup)
-
-
+# Вывод урока
 def send_lesson(call):
+    # Для вывода следующего урока делается проверка прогресса
     prog_stat = sql_requests.get_progress(call.from_user.id)["progress"]
     markup_to_test = types.InlineKeyboardMarkup(row_width=1)
     btn_to_test = types.InlineKeyboardButton("Приступить к тесту ⬇", callback_data='test_btn')
@@ -195,13 +190,12 @@ def send_test(call, var_1, var_2, var_3r, test):
                      reply_markup=None)
 
     markup_test = types.InlineKeyboardMarkup(row_width=3)
-
+    # 2 кнопки с неверным ответом и 1 с верным
     btn_var_1 = types.InlineKeyboardButton(var_1, callback_data='var_false')
     btn_var_2 = types.InlineKeyboardButton(var_2, callback_data='var_false')
     btn_var_3r = types.InlineKeyboardButton(var_3r, callback_data='var_right')
-
+    # Генерируется рандомное расположение кнопки с верным ответом
     num = random.randint(1, 3)
-
     if num == 1:
         markup_test.add(btn_var_1, btn_var_2, btn_var_3r)
     elif num == 2:
@@ -212,14 +206,15 @@ def send_test(call, var_1, var_2, var_3r, test):
     bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
 
 
-# Обрабатывет неверный ответ на тест
+# Обрабатывет верный ответ на тест
 def send_right(call):
     bot.send_message(call.message.chat.id, text='✅Верно!✅', reply_markup=None)
     bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
-
-    prog_stat = sql_requests.get_progress(call.from_user.id)["progress"]
-
+    # Добавление 2х баллов за верный ответ
     sql_requests.add_points(call.from_user.id, 2)
+    # Тк 2й и 6й урок поделены на 2 части, мы сверяем прогресс и в случае, если пользователь прошел 1й тест 2го или 6го
+    # урока, то ему начисляется 0.5 "прогресса", в др случаях по 1
+    prog_stat = sql_requests.get_progress(call.from_user.id)["progress"]
     if prog_stat == 1 or prog_stat == 5:
         sql_requests.add_progress(call.from_user.id, 0.5)
     else:
@@ -234,6 +229,8 @@ def send_right(call):
 
 # Обрабатывет неверный ответ на тест
 def send_false(call):
+    # Число попыток сохраняется в answer, если пользоваетль потратил свот попытки, то бот высылает урок повторно, чтобы
+    # пользователь смог повторить теорию и пройти тест еще раз
     if main.answer <= 0:
         main.answer = main.answer + 1
         bot.answer_callback_query(callback_query_id=call.id, text='❌Неверно!❌')
@@ -246,17 +243,7 @@ def send_false(call):
         send_lesson(call)
 
 
-# Вывод информации из профиля
-def profile(message):
-    points = sql_requests.get_point(message.from_user.id)
-    progress = sql_requests.get_progress(message.from_user.id)
-    bot.send_message(message.chat.id, f'👤Профиль <ins><b>{message.from_user.first_name}</b></ins>:\n'
-                                      f'⚡ Баллы: {points["point"]}\n'
-                                      f'🌟Уроков пройдено: {progress["progress"]} из 8 уроков',
-                     parse_mode='html')
-
-
-# Вывод урока
+# Вывод начального сообщения обучения
 def learning(message):
     to_menu(message, theory.start_mess1)
 
@@ -266,8 +253,18 @@ def learning(message):
     bot.send_message(message.chat.id, theory.lesson_0, reply_markup=markup_next, parse_mode='html')
 
 
+# Вывод теории
+def send_theory(call, name, theory_text):
+    bot.send_message(call.message.chat.id, text=name, parse_mode='html')
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    btn_back = types.InlineKeyboardButton("Назад", callback_data='to_theory')
+    markup.add(btn_back)
+    bot.send_message(call.message.chat.id, text=theory_text, parse_mode='html', reply_markup=markup)
+
+
 # Вывод меню теории
 def theorys(message, message1):
+    # Опять же проверяется значение "прогресса", чтобы открыть пользователю только ту теорию, которую он прошел
     prog = sql_requests.get_progress(message.from_user.id)["progress"]
     close1 = '🔒'
     close2 = '🔒'
@@ -299,6 +296,7 @@ def theorys(message, message1):
                  "(Чтобы открыть всю теорию, пройди все уроки)."
     to_menu(message1, theor_mess)
     markup = types.InlineKeyboardMarkup(row_width=1)
+
     btn_teor_1 = types.InlineKeyboardButton("Урок 1: Введение. О Python." + close1, callback_data='teor_1')
     btn_teor_2 = types.InlineKeyboardButton("Урок 2: Hello world." + close2, callback_data='teor_2')
     btn_teor_3 = types.InlineKeyboardButton("Урок 3: Простые операции." + close3, callback_data='teor_3')
@@ -309,6 +307,17 @@ def theorys(message, message1):
     btn_teor_8 = types.InlineKeyboardButton("Урок 8: Остаток" + close8, callback_data='teor_8')
     markup.add(btn_teor_1, btn_teor_2, btn_teor_3, btn_teor_4, btn_teor_5, btn_teor_6, btn_teor_7, btn_teor_8)
     bot.send_message(message1.chat.id, text="Модуль 1:", parse_mode='html', reply_markup=markup)
+
+
+# Вывод информации из профиля
+def profile(message):
+    # Выводится информация о пользователе с помощью запросов к бд
+    points = sql_requests.get_point(message.from_user.id)
+    progress = sql_requests.get_progress(message.from_user.id)
+    bot.send_message(message.chat.id, f'👤Профиль <ins><b>{message.from_user.first_name}</b></ins>:\n'
+                                      f'⚡ Баллы: {points["point"]}\n'
+                                      f'🌟Уроков пройдено: {progress["progress"]} из 8 уроков',
+                     parse_mode='html')
 
 
 # Вывод меню
